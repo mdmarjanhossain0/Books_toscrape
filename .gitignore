@@ -1,0 +1,81 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env/
+
+# Environment variable files
+*.env
+*.env.*
+
+# Python egg metadata and distribution
+*.egg-info/
+dist/
+build/
+
+# VSCode and other IDE settings
+.vscode/
+.idea/
+
+# macOS and Linux file junk
+.DS_Store
+Thumbs.db
+
+# pytest and coverage reports
+.pytest_cache/
+htmlcov/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# mypy
+.mypy_cache/
+.dmypy.json
+
+# Logs
+*.log
+
+# Uvicorn log or pid files
+*.pid
+
+# FastAPI static and media folders (if auto-generated or temporary)
+static/
+media/
+
+# Database files
+*.sqlite3
+*.db
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# docker
+*.container
+*.pid
+*.tar
+docker-compose.override.yml
+
+# jupyter
+.ipynb_checkpoints/
+
+# pycache from within any subdirectories
+**/__pycache__/
+
+# Optional: Ignore generated OpenAPI schema files
+openapi.json
+
+
+venv
+migrations
+data
