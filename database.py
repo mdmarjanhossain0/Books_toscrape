@@ -1,13 +1,28 @@
-import motor.motor_asyncio
-import os
+# database.py
+from motor.motor_asyncio import AsyncIOMotorClient
+from fastapi import Depends
 
 from decouple import config
 
 MONGO_URI = config("MONGO_URI")
-MONGO_DB = config("MONGO_DB", "book")
 
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
-db = client[MONGO_DB]
+class MongoDB:
+    def __init__(self):
+        self.client: AsyncIOMotorClient | None = None
+        self.db = None
 
-books_collection = db["books"]
-changes_collection = db["changes"]
+    async def connect(self):
+        self.client = AsyncIOMotorClient(MONGO_URI)
+        self.db = self.client["bookscraper"]
+        print("✅ MongoDB connected to:", self.db.name)
+
+    async def close(self):
+        if self.client:
+            self.client.close()
+            print("❌ MongoDB connection closed.")
+
+mongo_instance = MongoDB()
+
+# ✅ Normal async generator dependency (not @contextmanager)
+async def get_database():
+    yield mongo_instance.db

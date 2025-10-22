@@ -10,21 +10,12 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from slugify import slugify
 
-class BookSchema(BaseModel):
-    title: str
-    description: Optional[str] = None
-    category: str
-    price_incl_tax: float
-    price_excl_tax: float
-    availability: str
-    num_reviews: int
-    rating: str
-    image_url: str
-    source_url: str
-    crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
-    crawl_status: str = "success"
-    raw_html_path: Optional[str] = None
-    content_hash: str
+from database import mongo_instance
+
+from book.models import (
+    BookSchema
+)
+
 
 class CrawlerEngine:
     BASE_URL = "https://books.toscrape.com/"
@@ -125,9 +116,23 @@ class CrawlerEngine:
             print(f"⚠️ Parsing error for {url}: {e}")
             return None
 
+    # async def db_schema_update(self):
+    #     await mongo_instance.connect()
+    #     db = mongo_instance.db
+    #     indexes = await db["book"].list_indexes().to_list(None)
+    #     print(indexes)
+    #     await db["book"].drop_index("url_1")
+
+
     async def run(self):
+        await mongo_instance.connect()
+        db = mongo_instance.db
+        indexes = await db["book"].list_indexes().to_list(None)
+        print(indexes)
+        # return
+        
         async with httpx.AsyncClient(headers={"User-Agent": "BookCrawler/1.0"}) as client:
-            total_pages = 50
+            total_pages = 1
             # total_pages = await self.get_total_pages(client)
             print(f"📘 Total pages detected: {total_pages}")
 
@@ -147,13 +152,15 @@ class CrawlerEngine:
 
             books = [b.dict() for b in all_books if b]
             print(f"\n✅ Crawled {len(books)} books successfully.")
+            # await db["book"].create_index("content_hash", unique=True)
+            results = await db["book"].insert_many(books, ordered=False)
 
             output_json = self.output_dir / f"books_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
             with open(output_json, "w", encoding="utf-8") as f:
                 json.dump(books, f, indent=2, default=str)
 
             print(f"📦 Data saved to {output_json}")
-            return books
+        await mongo_instance.close()
 
 
 if __name__ == "__main__":
