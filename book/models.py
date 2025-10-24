@@ -13,14 +13,20 @@ class BookSchema(BaseModel):
     rating: str
     image_url: str
     source_url: str
+    raw_html_path: Optional[str] = None
     crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
     crawl_status: str = "success"
-    raw_html_path: Optional[str] = None
     content_hash: str
+    created_at: datetime
 
 class ChangeLog(BaseModel):
     book_id: str
-    field_changed: str
-    old_value: str
-    new_value: str
+    details: BookSchema
     change_time: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UrlRecordSchema(BaseModel):
+    url: str
+    type: str
+    status: bool
+    timestamp: datetime = Field(default_factory=datetime.utcnow)

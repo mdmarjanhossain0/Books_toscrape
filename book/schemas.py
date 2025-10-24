@@ -8,7 +8,7 @@ def book_collection_schema():
             "bsonType": "object",
             "required": ["title", "category", "price_incl_tax", "price_excl_tax",
                          "availability", "num_reviews", "rating", "image_url",
-                         "source_url", "content_hash"],
+                         "source_url", "content_hash", "created_at"],
             "properties": {
                 "title": {"bsonType": "string", "description": "Book title required"},
                 "description": {"bsonType": "string", "description": "Optional description"},
@@ -24,6 +24,7 @@ def book_collection_schema():
                 "crawl_status": {"bsonType": "string", "description": "Crawl status"},
                 "raw_html_path": {"bsonType": "string", "description": "Path to raw HTML file"},
                 "content_hash": {"bsonType": "string", "description": "Unique content hash"},
+                "created_at": {"bsonType": "date"}
             }
         }
     }
@@ -42,17 +43,9 @@ def change_log_schema():
                     "bsonType": "string",
                     "description": "The ID of the book being changed"
                 },
-                "field_changed": {
-                    "bsonType": "string",
-                    "description": "The field that was changed"
-                },
-                "old_value": {
-                    "bsonType": "string",
-                    "description": "The old value before change"
-                },
-                "new_value": {
-                    "bsonType": "string",
-                    "description": "The new value after change"
+                "details": {
+                    "bsonType": "object",
+                    "properties": book_collection_schema()["$jsonSchema"]["properties"]
                 },
                 "change_time": {
                     "bsonType": "date",
@@ -63,3 +56,25 @@ def change_log_schema():
     }
 
     return validator
+
+def url_record_schema():
+    validator = {
+        "$jsonSchema": {
+            "bsonType": "object",
+            "required": ["url", "type", "status", "crawl_time"],
+            "properties": {
+                "url": {
+                    "bsonType": "string"
+                },
+                "type": {
+                    "bsonType": "string"
+                },
+                "status": {
+                    "bsonType": "bool"
+                },
+                "timestamp": {
+                    "bsonType": "date"
+                }
+            }
+        }
+    }
