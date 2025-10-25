@@ -14,8 +14,10 @@ pymongo==4.9.1
 mongo-migrate
 
 
+
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
+apscheduler
 
 pytest==8.3.3
 pytest-asyncio==0.23.7

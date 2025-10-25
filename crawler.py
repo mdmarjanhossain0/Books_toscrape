@@ -12,12 +12,27 @@ from slugify import slugify
 
 from typing import List
 from database import mongo_instance
+import logging
 
 from book.models import (
     BookSchema,
     ChangeLog,
     UrlRecordSchema
 )
+
+
+
+logging.basicConfig(
+    level=logging.INFO,  # change to DEBUG for more details
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(),              # console
+        logging.FileHandler("crawler.log", mode="a", encoding="utf-8")  # file
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 
 class CrawlerEngine:
@@ -36,13 +51,14 @@ class CrawlerEngine:
             try:
                 response = await client.get(url, timeout=self.TIMEOUT)
                 response.raise_for_status()
+                logger.info(f"Successfully scraped: {url}")
                 return response.text
             except httpx.RequestError as e:
-                print(f"[Attempt {attempt}] Network error: {e}")
+                logger.warning(f"[Attempt {attempt}] Network error: {e}: {url}")
             except httpx.HTTPStatusError as e:
-                print(f"[Attempt {attempt}] HTTP error {e.response.status_code}: {url}")
+                logger.warning(f"[Attempt {attempt}] HTTP error {e.response.status_code}: {url}")
             await asyncio.sleep(attempt)  # exponential backoff
-        print(f"❌ Failed after {self.RETRIES} retries: {url}")
+        logger.error(f"❌ Failed after {self.RETRIES} retries: {url}")
         return None
 
     async def get_total_pages(self, client: httpx.AsyncClient) -> int:
@@ -80,26 +96,22 @@ class CrawlerEngine:
         await self.save_urls(db, book_links, type="detail")
         return book_links
 
-
-
     async def book_info_create_or_update(self, db, book):
         book = book.dict()
         old_book = await db["book"].find_one({"source_url": book["source_url"]})
         if old_book:
             changelog = ChangeLog(
-                book_id=old_book["book_id"],
+                book_id=str(old_book["_id"]),
                 details=book
             )
             book["created_at"] = old_book["created_at"]
-            await db["changelog"].insert_one(changelog)
-        print("insert book")
+            await db["changelog"].insert_one(changelog.dict())
         await db["book"].update_one(
             {"source_url": book["source_url"]},
             [{"$set": book}],
             upsert=True
         )
 
-        
     async def crawl_book(self, client: httpx.AsyncClient, url: str, db) -> Optional[BookSchema]:
         html = await self.fetch(client, url)
         if not html:
@@ -146,7 +158,6 @@ class CrawlerEngine:
                 content_hash=content_hash,
                 created_at=datetime.utcnow()
             )
-            print("book schema")
             await self.book_info_create_or_update(db, book)
             return book
         except Exception as e:
@@ -163,7 +174,6 @@ class CrawlerEngine:
         except:
             pass
 
-
     async def scrape_detai_urls(self, db, urls):
         async with httpx.AsyncClient(headers={"User-Agent": "BookCrawler/1.0"}) as client:
                 sem = asyncio.Semaphore(self.CONCURRENT_REQUESTS)
@@ -175,37 +185,46 @@ class CrawlerEngine:
                 all_books = await asyncio.gather(*detail_tasks)
 
                 books = [b.dict() for b in all_books if b]
-                print(f"\n✅ Crawled {len(books)} books successfully.")
-                # await db["book"].create_index("content_hash", unique=True)
-
-                print(f"📦 Data saved to db")
+                logger.info(f"Crawled {len(books)} books successfully.")
+                return books
 
     async def run(self):
-        await mongo_instance.connect()
-        db = mongo_instance.db
-        urls = await db["url_record"].find({"status": False, "type": "list"}).to_list(length=None)
-        print(urls)
+        logger.info("Start scraping ---------------- ")
+        try:
+            await mongo_instance.connect()
+            db = mongo_instance.db
+            urls = await db["url_record"].find({"status": False}).to_list(length=None)
+            if len(urls) > 0:
+                logger.info(f"Resume scraping: {len(urls)} pages(list) to scrape resumed")
+        except:
+            return
         
-        if len(urls) < 1 or True:
+        
+        if len(urls) < 1:
             async with httpx.AsyncClient(headers={"User-Agent": "BookCrawler/1.0"}) as client:
                 print("not enter to create url")
-                # total_pages = 3
                 total_pages = await self.get_total_pages(client)
                 print(f"📘 Total pages detected: {total_pages}")
                 urls = [self.CATALOGUE_URL.format(page_number) for page_number in range(1, total_pages + 1)]
                 await self.save_urls(db, urls)
+        
+        urls = await db["url_record"].find({"status": False, "type": "list"}).to_list(length=None)
         async with httpx.AsyncClient(headers={"User-Agent": "BookCrawler/1.0"}) as client:
-            page_tasks = [self.crawl_page(client, url, db) for url in urls]
-            await asyncio.gather(*page_tasks)
+            page_tasks = [self.crawl_page(client, url["url"], db) for url in urls]
+            results = await asyncio.gather(*page_tasks)
+            logger.info(f"Crawled {len(results)} list of page successfully")
                 
 
         all_book_urls = await db["url_record"].find({"status": False, "type": "detail"}).to_list(length=None)
-        print(f"detail url {len(all_book_urls)}")
-        await self.scrape_detai_urls(db, all_book_urls)
+        print(f"Detail url {len(all_book_urls)}")
+        results = await self.scrape_detai_urls(db, all_book_urls)
         
-        # result = await db["url_record"].delete_many({})
+        results = await db["url_record"].delete_many({})
         await mongo_instance.close()
 
+
+def run_job():
+    asyncio.run(CrawlerEngine().run())
 
 if __name__ == "__main__":
     asyncio.run(CrawlerEngine().run())

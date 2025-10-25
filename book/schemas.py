@@ -34,10 +34,14 @@ def book_collection_schema():
 
 
 def change_log_schema():
+    book_schema = book_collection_schema()["$jsonSchema"]["properties"]
+    book_schema["_id"] = {
+        "bsonType": "object"
+    }
     validator = {
         "$jsonSchema": {
             "bsonType": "object",
-            "required": ["book_id", "field_changed", "old_value", "new_value", "change_time"],
+            "required": ["book_id", "details", "change_time"],
             "properties": {
                 "book_id": {
                     "bsonType": "string",
@@ -45,7 +49,7 @@ def change_log_schema():
                 },
                 "details": {
                     "bsonType": "object",
-                    "properties": book_collection_schema()["$jsonSchema"]["properties"]
+                    "properties": book_schema
                 },
                 "change_time": {
                     "bsonType": "date",
